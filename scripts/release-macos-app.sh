@@ -93,6 +93,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# The Command Line Tools lack some x86_64 Swift libraries; use Xcode's toolchain when it's installed.
+if [ -z "${DEVELOPER_DIR:-}" ] && [ "$(xcode-select -p)" = "/Library/Developer/CommandLineTools" ] \
+    && [ -d /Applications/Xcode.app/Contents/Developer ]; then
+    export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+fi
+
 step "Building $TAG (build $BUILD)"
 git worktree add --quiet --detach "$WORK/src" "$TAG"
 (
@@ -101,10 +107,16 @@ git worktree add --quiet --detach "$WORK/src" "$TAG"
 )
 APP_PATH="$WORK/src/dist/$APP_NAME.app"
 [ -d "$APP_PATH" ] || die "build didn't produce dist/$APP_NAME.app"
-codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -q "Authority=Developer ID Application" \
-    || die "$APP_NAME.app isn't signed with Developer ID"
-codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -q "flags=.*runtime" \
-    || die "$APP_NAME.app isn't signed with the hardened runtime"
+# Capture first: piping into `grep -q` can SIGPIPE codesign, which pipefail reports as failure.
+SIGNATURE="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1)"
+case "$SIGNATURE" in
+    *"Authority=Developer ID Application"*) ;;
+    *) die "$APP_NAME.app isn't signed with Developer ID" ;;
+esac
+case "$SIGNATURE" in
+    *"(runtime)"*) ;;
+    *) die "$APP_NAME.app isn't signed with the hardened runtime" ;;
+esac
 
 # MARK: - Notarize and staple
 
