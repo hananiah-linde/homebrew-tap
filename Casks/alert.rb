@@ -1,6 +1,6 @@
 cask "alert" do
   version "0.1.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "e75ebc507b96e991e75a709920327fddf72bd84a66e283c54a5b6c3cc0595195"
 
   url "https://github.com/hananiah-linde/alert/releases/download/v#{version}/Alert-#{version}.zip"
   name "Alert"
