@@ -26,6 +26,11 @@ Usage examples are at the top of each file. The calling repo needs these secrets
 | `NOTARY_API_KEY` | Contents of the App Store Connect API key file (`AuthKey_XXXX.p8`) |
 | `NOTARY_API_KEY_ID` | That key's ID |
 | `NOTARY_API_ISSUER_ID` | App Store Connect issuer ID |
+| `APPLE_ID` | Apple ID email (used for notarization when `NOTARY_API_KEY` isn't set) |
+| `APPLE_TEAM_ID` | 10-character team ID from developer.apple.com → Account → Membership details |
+| `APPLE_APP_PASSWORD` | App-specific password from account.apple.com → Sign-In and Security |
 | `TAP_GITHUB_TOKEN` | Fine-grained token with Contents read/write on this repo only |
+
+Notarization needs either the three `NOTARY_API_*` secrets or the three `APPLE_*` ones; the API key wins when both are set.
 
 A new utility needs `Casks/<name>.rb` committed here before its first release; after that the version and sha256 update automatically.

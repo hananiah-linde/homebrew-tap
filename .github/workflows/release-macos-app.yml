@@ -14,9 +14,14 @@
 #       secrets:
 #         DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
 #         DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+#         # Notarization: either an App Store Connect API key...
 #         NOTARY_API_KEY: ${{ secrets.NOTARY_API_KEY }}
 #         NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
 #         NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+#         # ...or an Apple ID with an app-specific password (used when NOTARY_API_KEY is empty).
+#         APPLE_ID: ${{ secrets.APPLE_ID }}
+#         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+#         APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
 name: Release macOS app
 
 on:
@@ -52,12 +57,20 @@ on:
       DEVELOPER_ID_P12_PASSWORD:
         required: true
       NOTARY_API_KEY:
-        description: Contents of the App Store Connect API key (AuthKey_XXXX.p8).
-        required: true
+        description: Contents of the App Store Connect API key (AuthKey_XXXX.p8). Takes precedence over APPLE_ID.
+        required: false
       NOTARY_API_KEY_ID:
-        required: true
+        required: false
       NOTARY_API_ISSUER_ID:
-        required: true
+        required: false
+      APPLE_ID:
+        description: Apple ID email, used for notarization when NOTARY_API_KEY isn't set.
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      APPLE_APP_PASSWORD:
+        description: App-specific password from account.apple.com.
+        required: false
     outputs:
       version:
         value: ${{ jobs.release.outputs.version }}
@@ -152,10 +165,26 @@ jobs:
           NOTARY_API_KEY: ${{ secrets.NOTARY_API_KEY }}
           NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
           NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           KEY_FILE="$RUNNER_TEMP/AuthKey.p8"
-          printf '%s\n' "$NOTARY_API_KEY" > "$KEY_FILE"
-          AUTH=(--key "$KEY_FILE" --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER_ID")
+          if [ -n "$NOTARY_API_KEY" ]; then
+            if [ -z "$NOTARY_API_KEY_ID" ] || [ -z "$NOTARY_API_ISSUER_ID" ]; then
+              echo "::error::NOTARY_API_KEY is set but NOTARY_API_KEY_ID or NOTARY_API_ISSUER_ID is missing"
+              exit 1
+            fi
+            echo "Notarizing with App Store Connect API key"
+            printf '%s\n' "$NOTARY_API_KEY" > "$KEY_FILE"
+            AUTH=(--key "$KEY_FILE" --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER_ID")
+          elif [ -n "$APPLE_ID" ] && [ -n "$APPLE_TEAM_ID" ] && [ -n "$APPLE_APP_PASSWORD" ]; then
+            echo "Notarizing with Apple ID"
+            AUTH=(--apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD")
+          else
+            echo "::error::Set NOTARY_API_KEY/_KEY_ID/_ISSUER_ID, or APPLE_ID/APPLE_TEAM_ID/APPLE_APP_PASSWORD"
+            exit 1
+          fi
 
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$RUNNER_TEMP/notarize.zip"
           xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" "${AUTH[@]}" \
