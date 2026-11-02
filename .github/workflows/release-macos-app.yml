@@ -95,7 +95,7 @@ jobs:
       APP_NAME: ${{ inputs.app-name }}
       APP_PATH: ${{ inputs.app-path != '' && inputs.app-path || format('dist/{0}.app', inputs.app-name) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Determine version from tag
         id: version
@@ -200,7 +200,16 @@ jobs:
           fi
           rm -f "$KEY_FILE"
 
-          xcrun stapler staple "$APP_PATH"
+          # Fetching the ticket from Apple's CDN right after notarization is flaky; retry.
+          for attempt in 1 2 3 4 5; do
+            if xcrun stapler staple "$APP_PATH"; then break; fi
+            if [ "$attempt" = 5 ]; then
+              echo "::error::Stapling failed after $attempt attempts"
+              exit 1
+            fi
+            echo "Stapling failed (attempt $attempt), retrying in 30s"
+            sleep 30
+          done
           xcrun stapler validate "$APP_PATH"
           spctl --assess --type execute --verbose=2 "$APP_PATH"
 
