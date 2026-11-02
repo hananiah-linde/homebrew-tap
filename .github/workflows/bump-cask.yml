@@ -1,0 +1,71 @@
+# Reusable: set a cask's version and sha256 in this tap and push to main.
+#
+#   jobs:
+#     cask:
+#       needs: release
+#       uses: hananiah-linde/homebrew-tap/.github/workflows/bump-cask.yml@main
+#       with:
+#         cask: myapp
+#         version: ${{ needs.release.outputs.version }}
+#         sha256: ${{ needs.release.outputs.sha256 }}
+#       secrets:
+#         TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+name: Bump cask
+
+on:
+  workflow_call:
+    inputs:
+      cask:
+        description: Cask token, i.e. Casks/<cask>.rb
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      sha256:
+        required: true
+        type: string
+      tap-repository:
+        required: false
+        type: string
+        default: hananiah-linde/homebrew-tap
+    secrets:
+      TAP_GITHUB_TOKEN:
+        description: Fine-grained token with Contents read/write on the tap repository.
+        required: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.tap-repository }}
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+      - name: Update cask
+        env:
+          CASK: ${{ inputs.cask }}
+          VERSION: ${{ inputs.version }}
+          SHA256: ${{ inputs.sha256 }}
+        run: |
+          FILE="Casks/$CASK.rb"
+          [ -f "$FILE" ] || { echo "::error::$FILE not found in the tap"; exit 1; }
+          [[ "$VERSION" =~ ^[0-9A-Za-z.+-]+$ ]] || { echo "::error::Bad version: $VERSION"; exit 1; }
+          [[ "$SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::Bad sha256: $SHA256"; exit 1; }
+
+          sed -i -E \
+            -e "s/^(  version \")[^\"]*\"/\1$VERSION\"/" \
+            -e "s/^(  sha256 \")[^\"]*\"/\1$SHA256\"/" \
+            "$FILE"
+
+          if git diff --quiet; then
+            echo "$FILE already at $VERSION"
+            exit 0
+          fi
+          git diff
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "$CASK $VERSION"
+          git push

@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["Casks/**"]
+  pull_request:
+    paths: ["Casks/**"]
+
+jobs:
+  style:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: brew style
+        run: brew style Casks/
