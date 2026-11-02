@@ -3,6 +3,8 @@
 Homebrew casks for my small macOS utilities.
 
 ```sh
+brew tap hananiah-linde/tap
+brew trust --cask hananiah-linde/tap/<name>   # Homebrew only loads casks from trusted third-party taps
 brew install --cask hananiah-linde/tap/<name>
 ```
 
