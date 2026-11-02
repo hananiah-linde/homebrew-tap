@@ -10,6 +10,7 @@ brew install --cask hananiah-linde/tap/<name>
 
 | Cask | Description |
 | --- | --- |
+| [`alert`](https://github.com/hananiah-linde/alert) | Menu bar utility that shows Dock badges for chosen apps |
 | [`awake`](https://github.com/hananiah-linde/awake) | Menu bar utility that prevents sleep |
 
 ## Releasing from this Mac
